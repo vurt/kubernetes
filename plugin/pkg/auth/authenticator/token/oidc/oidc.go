@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/jose"
@@ -88,7 +89,7 @@ func New(issuerURL, clientID, caFile, usernameClaim, groupsClaim string) (*OIDCA
 			return nil, fmt.Errorf("failed to fetch provider config after %v retries", maxRetries)
 		}
 
-		cfg, err = oidc.FetchProviderConfig(hc, issuerURL)
+		cfg, err = oidc.FetchProviderConfig(hc, strings.TrimSuffix(issuerURL, "/"))
 		if err == nil {
 			break
 		}
@@ -97,10 +98,6 @@ func New(issuerURL, clientID, caFile, usernameClaim, groupsClaim string) (*OIDCA
 	}
 
 	glog.Infof("Fetched provider config from %s: %#v", issuerURL, cfg)
-
-	if cfg.KeysEndpoint == "" {
-		return nil, fmt.Errorf("OIDC provider must provide 'jwks_uri' for public key discovery")
-	}
 
 	ccfg := oidc.ClientConfig{
 		HTTPClient:     hc,

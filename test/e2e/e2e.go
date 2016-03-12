@@ -33,6 +33,7 @@ import (
 	"github.com/onsi/gomega"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	"k8s.io/kubernetes/pkg/cloudprovider"
@@ -62,7 +63,7 @@ func RegisterFlags() {
 	// Randomize specs as well as suites
 	config.GinkgoConfig.RandomizeAllSpecs = true
 
-	flag.StringVar(&testContext.KubeConfig, clientcmd.RecommendedConfigPathFlag, "", "Path to kubeconfig containing embedded authinfo.")
+	flag.StringVar(&testContext.KubeConfig, clientcmd.RecommendedConfigPathFlag, os.Getenv(clientcmd.RecommendedConfigPathEnvVar), "Path to kubeconfig containing embedded authinfo.")
 	flag.StringVar(&testContext.KubeContext, clientcmd.FlagContext, "", "kubeconfig context to use/override. If unset, will use value from 'current-context'")
 	flag.StringVar(&testContext.KubeVolumeDir, "volume-dir", "/var/lib/kubelet", "Path to the directory containing the kubelet volumes.")
 	flag.StringVar(&testContext.CertDir, "cert-dir", "", "Path to the directory containing the certs. Default is empty, which doesn't use certs.")
@@ -180,6 +181,13 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	// test pods from running, and tests that ensure all pods are running and
 	// ready will fail).
 	if err := waitForPodsRunningReady(api.NamespaceSystem, testContext.MinStartupPods, podStartupTimeout); err != nil {
+		if c, errClient := loadClient(); errClient != nil {
+			Logf("Unable to dump cluster information because: %v", errClient)
+		} else {
+			dumpAllNamespaceInfo(c, api.NamespaceSystem)
+		}
+		logFailedContainers(api.NamespaceSystem)
+		runKubernetesServiceTestContainer(testContext.RepoRoot, api.NamespaceDefault)
 		Failf("Error waiting for all pods to be running and ready: %v", err)
 	}
 
